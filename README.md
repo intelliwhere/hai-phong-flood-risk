@@ -19,7 +19,7 @@ This project is part of the **IntelliWhere** GIS risk intelligence portfolio —
 ---
 
 ## How to Run
-Link in GitHub Pages brings you to the interactive risk analysis map.
+Link in About section directs to the interactive risk analysis map.
 
 ```bash
 git clone https://github.com/intelliwhere/hai-phong-flood-risk

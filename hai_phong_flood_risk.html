@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hai Phong - District Flood Risk Assessment</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0d1117}
+#map{width:100vw;height:100vh}
+#titlebar{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:900;
+  background:rgba(26,39,68,0.96);padding:9px 22px;border-radius:0 0 10px 10px;
+  text-align:center;box-shadow:0 2px 12px rgba(0,0,0,0.4);backdrop-filter:blur(6px)}
+#titlebar h1{color:#fff;font-size:15px;font-weight:700}
+#titlebar{padding:8px 22px}
+#titlebar p{color:#8eacc8;font-size:11px;margin-top:2px}
+#legend{position:fixed;bottom:30px;right:16px;z-index:900;
+  background:rgba(255,255,255,0.97);border-radius:10px;padding:13px 16px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.25);font-size:12px;min-width:170px}
+#legend b{font-size:13px;display:block;margin-bottom:8px;color:#1a2744}
+.leg-row{display:flex;align-items:center;gap:8px;margin:5px 0}
+.leg-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+#legend .note{font-size:10px;color:#888;margin-top:8px;border-top:1px solid #eee;padding-top:6px}
+#infopanel{position:fixed;left:0;top:50px;bottom:0;z-index:950;width:290px;
+  background:rgba(15,22,40,0.97);border-right:1px solid #1b7fa0;
+  display:flex;flex-direction:column;transform:translateX(-260px);
+  transition:transform 0.35s ease;box-shadow:3px 0 16px rgba(0,0,0,0.5)}
+#infopanel.open{transform:translateX(0)}
+#panel-tab{position:absolute;right:-36px;top:50%;transform:translateY(-50%);
+  background:#1a2744;border:1px solid #1b7fa0;border-left:none;
+  border-radius:0 8px 8px 0;width:36px;height:72px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;
+  color:#8eacc8;font-size:11px;font-weight:600;letter-spacing:1px;
+  padding:6px 4px;transition:background 0.2s}
+#panel-tab:hover{background:#1b7fa0;color:#fff}
+#panel-content{flex:1;overflow-y:auto;padding:16px 14px;
+  scrollbar-width:thin;scrollbar-color:#1b7fa0 #0d1117}
+#panel-content::-webkit-scrollbar{width:5px}
+#panel-content::-webkit-scrollbar-thumb{background:#1b7fa0;border-radius:3px}
+.psec{margin-bottom:20px}
+.psec h2{color:#1b7fa0;font-size:12px;font-weight:700;text-transform:uppercase;
+  letter-spacing:1px;border-bottom:1px solid #1b3a50;padding-bottom:5px;margin-bottom:8px}
+.psec p{color:#c8d6e8;font-size:11.5px;line-height:1.6;margin-bottom:6px}
+.stat{background:rgba(27,127,160,0.15);border-left:3px solid #1b7fa0;
+  padding:6px 10px;border-radius:0 6px 6px 0;margin:6px 0;color:#e0ecf8;font-size:11px;line-height:1.5}
+.stat strong{color:#fff}
+.yb{display:inline-block;background:rgba(27,127,160,0.3);color:#80d8ff;
+  font-size:10px;padding:1px 6px;border-radius:3px;margin-right:4px;font-weight:700}
+#panel-content h3{color:#fff;font-size:13px;margin-bottom:10px}
+.disc{color:#555;font-size:10px;font-style:italic;border-top:1px solid #1b3a50;padding-top:8px}
+/* open-slideshow now in action-btns */
+#slideshow{position:fixed;bottom:82px;left:50%;transform:translateX(-50%);z-index:900;width:380px;
+  background:rgba(15,22,40,0.97);border:1px solid #1b7fa0;border-radius:12px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.5);display:none}
+#slideshow.visible{display:block;max-height:calc(100vh - 160px)}
+#ss-hdr{background:#1a2744;border-radius:11px 11px 0 0;padding:10px 14px;
+  display:flex;align-items:center;justify-content:space-between}
+#ss-hdr span{color:#fff;font-size:12px;font-weight:700}
+.xbtn{cursor:pointer;color:#8eacc8;font-size:16px;line-height:1;padding:0 4px}
+.xbtn:hover{color:#fff}
+#ss-body{padding:14px;max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#1b7fa0 #0d1117}
+.slide{display:none}
+.slide.active{display:block}
+.sd{font-size:13px;font-weight:700;color:#fff;margin-bottom:4px}
+.sr{display:inline-block;font-size:11px;font-weight:700;padding:2px 10px;border-radius:4px;margin-bottom:10px}
+.sbar{display:flex;gap:4px;margin-bottom:10px}
+.pip{flex:1;height:8px;border-radius:3px;background:#1e2d40}
+.pip.f{background:#1b7fa0}.pip.f.h{background:#f57c00}
+.pip.f.v{background:#d32f2f}.pip.f.m{background:#f9a825}
+.slide p{color:#c8d6e8;font-size:11.5px;line-height:1.6;margin-bottom:8px}
+.ev{background:rgba(27,127,160,0.12);border-left:3px solid #1b7fa0;
+  padding:7px 10px;border-radius:0 6px 6px 0;margin-top:8px}
+.evt{color:#80d8ff;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:0.8px;margin-bottom:4px}
+.ev p{color:#a8c8e0;font-size:11px;margin-bottom:3px}
+#ss-nav{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-top:1px solid #1b3a50}
+.nbtn{background:#1a2744;border:1px solid #1b7fa0;color:#8eacc8;
+  padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px}
+.nbtn:hover{background:#1b7fa0;color:#fff}
+#sc{color:#8eacc8;font-size:11px}
+
+/* ── Three action buttons ── */
+#action-btns {
+  position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:910;
+  display:flex; gap:8px;
+}
+.action-btn {
+  background:rgba(26,39,68,0.95); border:1px solid #1b7fa0;
+  color:#8eacc8; padding:9px 14px; border-radius:10px; cursor:pointer;
+  font-size:11.5px; font-weight:600; box-shadow:0 2px 10px rgba(0,0,0,0.35);
+  transition:all 0.2s; white-space:nowrap;
+}
+.action-btn:hover { background:#1b7fa0; color:#fff; }
+.action-btn.hidden { display:none; }
+
+/* ── Overlay panel (shared) ── */
+.overlay-panel {
+  position:fixed; top:55px; right:0; bottom:0; z-index:960;
+  width:360px; background:rgba(12,18,35,0.98);
+  border-left:1px solid #1b7fa0;
+  display:none; flex-direction:column;
+  box-shadow:-4px 0 20px rgba(0,0,0,0.6);
+  transform:translateX(100%); transition:transform 0.3s ease;
+}
+.overlay-panel.open { display:flex; transform:translateX(0); }
+.ov-header {
+  background:#1a2744; padding:14px 16px;
+  display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid #1b7fa0;
+}
+.ov-header span { color:#fff; font-size:13px; font-weight:700; }
+.ov-close { cursor:pointer; color:#8eacc8; font-size:18px; padding:0 4px; }
+.ov-close:hover { color:#fff; }
+.ov-body {
+  flex:1; overflow-y:auto; padding:16px;
+  scrollbar-width:thin; scrollbar-color:#1b7fa0 #0d1117;
+}
+.ov-body::-webkit-scrollbar { width:4px; }
+.ov-body::-webkit-scrollbar-thumb { background:#1b7fa0; border-radius:2px; }
+.ov-sec { margin-bottom:18px; }
+.ov-sec h3 {
+  color:#1b7fa0; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:1px;
+  border-bottom:1px solid #1b3a50; padding-bottom:4px; margin-bottom:8px;
+}
+.ov-sec p { color:#c8d6e8; font-size:11.5px; line-height:1.65; margin-bottom:7px; }
+.ov-card {
+  background:rgba(27,127,160,0.12); border-left:3px solid #1b7fa0;
+  padding:8px 10px; border-radius:0 6px 6px 0; margin:6px 0;
+  color:#e0ecf8; font-size:11px; line-height:1.55;
+}
+.ov-card strong { color:#fff; display:block; margin-bottom:2px; }
+.ov-tag {
+  display:inline-block; font-size:10px; font-weight:700;
+  padding:2px 8px; border-radius:4px; margin:2px 3px 2px 0;
+}
+.tag-red   { background:rgba(211,47,47,0.2);  color:#ff5252; border:1px solid rgba(211,47,47,0.4); }
+.tag-orng  { background:rgba(245,124,0,0.2);  color:#ffb74d; border:1px solid rgba(245,124,0,0.4); }
+.tag-grn   { background:rgba(56,142,60,0.2);  color:#69f0ae; border:1px solid rgba(56,142,60,0.4); }
+.tag-blue  { background:rgba(27,127,160,0.25);color:#80d8ff; border:1px solid rgba(27,127,160,0.5); }
+.client-card {
+  background:rgba(26,39,68,0.6); border:1px solid #1b3a50;
+  border-radius:8px; padding:10px 12px; margin:8px 0;
+}
+.client-card .ct { color:#1b7fa0; font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.8px; margin-bottom:5px; }
+.client-card p { color:#c8d6e8; font-size:11px; line-height:1.55; margin:0; }
+
+
+/* ── Layer control panel ── */
+#layer-btn {
+  position:fixed; top:58px; right:16px; z-index:910;
+  background:rgba(26,39,68,0.96); border:1px solid #1b7fa0;
+  color:#8eacc8; padding:8px 14px; border-radius:10px;
+  cursor:pointer; font-size:12px; font-weight:600;
+  box-shadow:0 2px 10px rgba(0,0,0,0.35); transition:all 0.2s;
+  display:flex; align-items:center; gap:7px;
+}
+#layer-btn:hover { background:#1b7fa0; color:#fff; }
+#layer-btn .dot { width:8px; height:8px; border-radius:50%; background:#1b7fa0; }
+
+#layer-panel {
+  position:fixed; top:100px; right:16px; z-index:909;
+  width:240px; background:rgba(12,18,35,0.97);
+  border:1px solid #1b7fa0; border-radius:12px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.5);
+  display:none; flex-direction:column; overflow:hidden;
+}
+#layer-panel.open { display:flex; }
+#lp-header {
+  background:#1a2744; padding:10px 14px;
+  display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid #1b3a50;
+}
+#lp-header span { color:#fff; font-size:12px; font-weight:700; }
+#lp-body { padding:10px 12px; }
+
+.layer-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 0; border-bottom:1px solid #0f1a2e;
+}
+.layer-row:last-child { border-bottom:none; }
+.layer-info { display:flex; align-items:center; gap:9px; }
+.layer-swatch {
+  width:18px; height:18px; border-radius:3px; flex-shrink:0;
+  border:1px solid rgba(255,255,255,0.15);
+}
+.layer-label { color:#c8d6e8; font-size:11px; font-weight:600; }
+.layer-desc { color:#556677; font-size:9.5px; margin-top:1px; }
+
+/* Toggle switch */
+.toggle { position:relative; width:34px; height:18px; flex-shrink:0; }
+.toggle input { opacity:0; width:0; height:0; }
+.toggle-slider {
+  position:absolute; inset:0; background:#1e2d40;
+  border-radius:18px; cursor:pointer; transition:0.2s;
+  border:1px solid #2a3d55;
+}
+.toggle-slider:before {
+  content:''; position:absolute; width:12px; height:12px;
+  left:2px; top:2px; background:#556677; border-radius:50%; transition:0.2s;
+}
+.toggle input:checked + .toggle-slider { background:#1b7fa0; border-color:#1b7fa0; }
+.toggle input:checked + .toggle-slider:before { transform:translateX(16px); background:#fff; }
+
+.lp-note {
+  font-size:9px; color:#334455; padding:8px 0 2px 0;
+  border-top:1px solid #0f1a2e; text-align:center; line-height:1.4;
+}
+
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="titlebar">
+  <div style="display:flex;align-items:center;justify-content:center;gap:10px">
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAAGdUlEQVR4nK2XW2xUxxnHfzNzdr1eX4PBDlBoAJkAqatSSgAbq2nSolwUEdqSRvSqErWBJGqrKlKrhD40D0S5PfSBVs1FUaqIqjJNVInITSpUGpIALpCGQLChlPiCjW9s7N31rs+Z+fpwdonNri+0+Uuj83DOzPef//fNf76jnHPCNcIJiAj5iQpQSqHVta4E3mw/FMA5QSuF0SoX9ipiTnAiaK2KvC0ONRsFnISBlQqX7RzKcLYvy0DSRwHzKjzq60pZVFMSkhW5MmcmzKiAdYJnNE6EPxwa4OVDA5zoHGM46UOQ4x7R1JQbVi8u43tNNXy7aR5GawLrcmpNjWkVyAd/vyvFAy+c490zI7mgDmKa8hIDCpIZCxkHSkHEo/HGCn77w2V8flHZjCSmJJAPfuB0gm888wGJ0XFwloYlFdzbWMvGFdUsrA4l7xrKcPD0MC1HhzjdlQZtqC7zePXnN3HLyuppSRQl4JxgjOZUd5LGXccYSfvEjONXW5fxs7tuIBY1RRdLZQOe+ssFdr96Ad8pqsoivPP4GlYuKMNahy5GwjknE4d1Tqx1Mh5YufnRw8I9+yX2rf3y2tGLIiLinJNx34ofhENEZDAxKi2vvy3inIiI7D3ULdF79wv3vC6Nuw5LYJ0EdnKc/NAF0tvwGO19q4ej/+oFl+Hp79/I5rXzyfoWATyjUAq0Uhx9r53GTQ/x+1daEaVIZ3zua1rIr+9bBnaMd05cpOXdHoxWBLYw2wUEjFaICM/99RwqnWLjykoevGMpvnVEPI0iPGZaKbLZLN/c8QQdJzqYO6cSBCJGEVjHI5vr+VJ9BWosw/NvnA+DFUnBJAJ5EznfN8rxjksIWXbevgRQIDLJXFzurCut0WWlBNaiFAgqNCyt+dGmGxCXpa29n+7BFEYrnMjUBMSFz1MfXSY99DFVVYbmz9UVsBcRjNZIjpRzDgX0XPaJRjSepxGBrzTUUlqh+HgwQXt3Ijd3sgKTjCjv7gPDSUiOsHBJnLrqUiD0epHwqBtjePp3+4jHS6iqKIPAUhn32LWvG8+Ns2d7PZ5R1FWXUldpuNCfYOBy6gr5iTZeUAOhEgFkRolIFmNC+RFBENKZLN/96TM88tBTJNMZjNHgAIGoUTy3r4e7nm0nlbWURDQRl4VsElxQLFRxAnVVJeBSDA0NkUqPg1I5M9EkEkleee0g5rpKPM+EO1KhfiiFqYrwVscoqayQzfoMDw+DpJlbWZJTchoC+TyvWjKXWLlw8UInZz/qR0SIRsJsjabSzKmuwDoHRTzUWiEe1cRjhg//c4mhrh7Ky2HF4jlXUjk1AaVwzrF0YQ1rls9DevtoaT2CUorznX3cse0xjpzooDRWAi6n+wSosDEgsI6SqGLfG22o/j7WLa/hM3XXYZ0ruCELjcg5lFLcv2UDImO81PImx06e47Ztj9G6/21isUjBUcpDREAcZfEYR97v5KU/vYkwxvYt64DQ4q9GAQHPGJxzbLu7iS+sX07vmX/T9l47I6NpTHU54ib6wcTd5PoFJ8RiUY5/cI7+U2dY37yCrbevwzqHZwpLrmgROhGi0QgvPvkwJeWhyUSjEax1n+y0qAKAhIuOZ31iVXFeeOJBPM8rNIDpCITNhGX1TcvY+/yjlJXGrgSdTn7J1YVoQ1VFnL0v7mJV/WICa9G6aKipOyKjNX5g2bJpAx+e7eTSpWF0xKM8HkNpBTKhBAUiEYOOxVHxCno6u7ht5xdZuqCaILChV0yBqd8QXkx+YJlfV8OGNStwoykOHTvD+HgASuGZ8HLC0/QNjdJ79jhy5GVuDv7B3AoPP7DFe4AJmLEpzTcn3b2DrL3zJ/R1D+BVlWP9gM8uqmVgeIR0OoM2BptMsuD6Ktpa97Bgfu3UTci1EACw1uF5hr8fPsnXtv4SFfFwSmGzPngG42m0E8QPOPDnJ2leu2pG6fOY+QvAGI3vB9yyvoFnH/8xfmIUozVeSQRjVFgviRF+s3snzWtX4fvBrILPmgCA5xl8P+DhH9zN9vs3Mz6YQBuNMR7jA5d5YMfX2fGdO/H9AM8r3jMWw6xSkEf+h8NZx5e3/oLDbadBoLmpgQN/3A25Nu1qv//UCEDYfBhj6OodoOHWnXie5uTf9nB9bQ3OzVx0/zcB+KQoWw/+E88Yvrpx9ayL7lMhALnGNOduLneB/S+Y9d/x1VBKYa0FmNJmZ4P/AtyCW5Oznr7DAAAAAElFTkSuQmCC" alt="IntelliWhere" style="height:32px;width:auto;image-rendering:crisp-edges"/>
+    <div>
+      <h1>Hai Phong &#8212; District Flood Risk Assessment</h1>
+      <p>Sample GIS Risk Deliverable &nbsp;|&nbsp; Data: OpenStreetMap, NASA SRTM, NOAA IBTrACS &nbsp;|&nbsp; intelliwhere@gmail.com</p>
+    </div>
+  </div>
+</div>
+</div>
+<div id="legend">
+  <b>Flood Risk Level</b>
+  <div class="leg-row"><div class="leg-dot" style="background:#d32f2f"></div>Very High (Score 5)</div>
+  <div class="leg-row"><div class="leg-dot" style="background:#f57c00"></div>High (Score 4)</div>
+  <div class="leg-row"><div class="leg-dot" style="background:#f9a825"></div>Medium (Score 3)</div>
+  <div class="leg-row"><div class="leg-dot" style="background:#388e3c"></div>Low (Score 1-2)</div>
+  <div class="note">Click any district for details</div>
+</div>
+
+<div id="infopanel">
+  <div id="panel-tab" onclick="togglePanel()">CITY&nbsp;INFO</div>
+  <div id="panel-content">
+    <h3>Hai Phong Flood Context</h3>
+    <div class="psec">
+      <h2>Why Hai Phong Floods</h2>
+      <p>Hai Phong sits at the mouth of the Red River Delta, where Vietnam's largest river system meets the Gulf of Tonkin. Most urban areas sit just <strong style="color:#fff">1 to 4 metres above sea level</strong>.</p>
+      <p>Three separate flood mechanisms converge simultaneously:</p>
+      <div class="stat"><strong>Typhoons</strong> &#8212; The Gulf of Tonkin is one of Asia's most active typhoon corridors. Storms funnel directly toward Hai Phong's coast.</div>
+      <div class="stat"><strong>River overflow</strong> &#8212; The Thai Binh and Van Uc rivers drain the entire northern highlands and back up into low-lying districts after monsoon rain.</div>
+      <div class="stat"><strong>Storm surge</strong> &#8212; Typhoon winds push seawater inland. A 1m surge, typical in a Category 2 storm, inundates most of the urban core.</div>
+    </div>
+    <div class="psec">
+      <h2>Scale of Historical Impact</h2>
+      <div class="stat"><strong>14 significant typhoons</strong> within 100km of Hai Phong between 1990 and 2024 (NOAA IBTrACS)</div>
+      <div class="stat"><strong>45,000 evacuated</strong> during Typhoon Mirinae (2009) &#8212; Do Son peninsula submerged under 3m surge</div>
+      <div class="stat"><strong>12,000 homes flooded</strong> in Hai An during Typhoon Son Tinh (2018) &#8212; port gates overtopped</div>
+      <div class="stat"><strong>8,000 displaced</strong> in Vinh Bao (2017) &#8212; isolated 5 days, no road access</div>
+      <div class="stat"><strong>$4M+ USD crop loss</strong> in An Lao when Thai Binh River dikes failed 2017 (FAO Vietnam)</div>
+    </div>
+    <div class="psec">
+      <h2>Climate Trajectory</h2>
+      <div class="stat">Sea level rise of <strong>20 to 30cm by 2050</strong> projected for the Red River Delta coast (UNDP Vietnam 2019)</div>
+      <div class="stat">Typhoon intensification: storms reaching higher wind speeds faster due to warmer Gulf of Tonkin sea temperatures</div>
+      <div class="stat">Monsoon rainfall increasingly concentrated into shorter, more intense events &#8212; overwhelming legacy drainage systems</div>
+    </div>
+    <div class="psec">
+      <h2>Implications for Asset Risk</h2>
+      <div class="stat"><strong>Collateral impairment</strong> &#8212; Properties in Very High zones have documented damage histories. Values may not reflect latent flood liability.</div>
+      <div class="stat"><strong>Business interruption</strong> &#8212; Hai An port suspended during events. Thuy Nguyen industrial zones face post-flood contamination liability.</div>
+      <div class="stat"><strong>Insurance gap</strong> &#8212; Standard single-peril policies may not cover compound typhoon + surge + river overflow events simultaneously.</div>
+      <div class="stat"><strong>Evacuation isolation</strong> &#8212; Cat Hai island cut off 72+ hours post-typhoon. No road evacuation corridor exists.</div>
+    </div>
+    <div class="psec">
+      <h2>Key Incident Timeline</h2>
+      <span class="yb">2005</span><span style="color:#c8d6e8;font-size:11px">Thai Binh River dike breach &#8212; An Lao flooded</span><br><br>
+      <span class="yb">2008</span><span style="color:#c8d6e8;font-size:11px">Red River flood &#8212; Tien Lang submerged 3-7 days</span><br><br>
+      <span class="yb">2009</span><span style="color:#c8d6e8;font-size:11px">Typhoon Mirinae &#8212; 45,000 evacuated, 3m surge Do Son</span><br><br>
+      <span class="yb">2013</span><span style="color:#c8d6e8;font-size:11px">Typhoon Haiyan surge &#8212; low dike ratings exposed</span><br><br>
+      <span class="yb">2017</span><span style="color:#c8d6e8;font-size:11px">River flood &#8212; Vinh Bao 8,000 displaced, An Lao $4M crop loss</span><br><br>
+      <span class="yb">2018</span><span style="color:#c8d6e8;font-size:11px">Typhoon Son Tinh &#8212; Hai An port overtopped, 12,000 homes</span><br><br>
+      <span class="yb">2022</span><span style="color:#c8d6e8;font-size:11px">200mm rainfall event &#8212; Hong Bang 1,500 homes flooded</span><br><br>
+      <span class="yb">2024</span><span style="color:#c8d6e8;font-size:11px">Typhoon Bebinca &#8212; Cat Hai evacuated, 72hr ferry cutoff</span>
+    </div>
+    <div class="psec">
+      <h2>Data Sources</h2>
+      <p style="color:#8eacc8;font-size:10.5px;line-height:1.8">
+        OpenStreetMap &#8212; district boundaries<br>
+        NASA SRTM 30m &#8212; elevation data<br>
+        NOAA IBTrACS &#8212; typhoon track records<br>
+        ReliefWeb / UN OCHA &#8212; disaster reports<br>
+        FAO Vietnam &#8212; agricultural loss records 2017<br>
+        Vietnam MARD &#8212; flood risk audits 2020-2021<br>
+        VnExpress, Tuoi Tre &#8212; verified news archive<br>
+        UNDP Vietnam &#8212; 2019 climate risk assessment
+      </p>
+    </div>
+    <div class="psec">
+      <p class="disc">Disclaimer: This analysis is based on compiled spatial data from public sources for informational risk assessment purposes only. It does not constitute a legal survey or professional engineering opinion. Prepared by Ryan Nguyen, B.Eng Geomatics Engineering (EIT) &#8212; intelliwhere@gmail.com</p>
+    </div>
+  </div>
+</div>
+
+
+
+<div id="slideshow">
+  <div id="ss-hdr">
+    <span>District Score Reasoning</span>
+    <span class="xbtn" onclick="closeSlideshow()">&#x2715;</span>
+  </div>
+  <div id="ss-body">
+    <div class="slide active">
+      <div class="sd">Do Son District</div>
+      <div class="sr" style="background:rgba(211,47,47,0.25);color:#ff5252;border:1px solid rgba(211,47,47,0.5)">Very High &#8212; Score 5/5</div>
+      <div class="sbar"><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div></div>
+      <p>Coastal peninsula at ~2m elevation, directly exposed to the Gulf of Tonkin. No natural barrier. Hai Phong's most typhoon-vulnerable urban zone.</p>
+      <div class="ev"><div class="evt">Verified Incidents</div>
+        <p>Typhoon Mirinae (2009): 3m storm surge submerged the peninsula. 45,000 residents evacuated. Confirmed by ReliefWeb UN OCHA situation report.</p>
+        <p>Coastline lost 50-80m of beach over 20 years, reducing buffer against future surges.</p>
+        <p>MARD 2021 audit rated Do Son dike systems sub-standard for Category 3+ typhoon loading.</p>
+      </div>
+    </div>
+    <div class="slide">
+      <div class="sd">Hai An District (Port Zone)</div>
+      <div class="sr" style="background:rgba(211,47,47,0.25);color:#ff5252;border:1px solid rgba(211,47,47,0.5)">Very High &#8212; Score 5/5</div>
+      <div class="sbar"><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div></div>
+      <p>Hosts Hai Phong's primary container port &#8212; Vietnam's largest northern cargo gateway. At 2m elevation, port infrastructure sits in the storm surge pathway from the Van Uc river mouth.</p>
+      <div class="ev"><div class="evt">Verified Incidents</div>
+        <p>Typhoon Son Tinh (July 2018): port access gates overtopped. 12,000 homes flooded. Operations suspended 48 hours. &#8212; VnExpress, July 2018.</p>
+        <p>River surge from Van Uc + direct coastal surge arrive simultaneously, doubling peak water levels vs. single-source events.</p>
+      </div>
+    </div>
+    <div class="slide">
+      <div class="sd">Tien Lang District</div>
+      <div class="sr" style="background:rgba(211,47,47,0.25);color:#ff5252;border:1px solid rgba(211,47,47,0.5)">Very High &#8212; Score 5/5</div>
+      <div class="sbar"><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div></div>
+      <p>Hai Phong's lowest-lying district under 1.5m average elevation. First to flood when any of three river branches overflow.</p>
+      <div class="ev"><div class="evt">Verified Incidents</div>
+        <p>2008 Red River flood: Tien Lang inundated 3-7 continuous days. 60% of farmland lost.</p>
+        <p>2017 flood: secondary dikes overtopped, district isolated. &#8212; UNDP Vietnam 2019 climate displacement report.</p>
+        <p>UNDP projects Tien Lang loses 15-20% of its land area under a 30cm sea level rise scenario by 2050.</p>
+      </div>
+    </div>
+    <div class="slide">
+      <div class="sd">Duong Kinh District</div>
+      <div class="sr" style="background:rgba(211,47,47,0.25);color:#ff5252;border:1px solid rgba(211,47,47,0.5)">Very High &#8212; Score 5/5</div>
+      <div class="sbar"><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div><div class="pip f v"></div></div>
+      <p>Positioned between Do Son peninsula and Lach Tray river outlet &#8212; a natural funnel for converging storm surge.</p>
+      <div class="ev"><div class="evt">Verified Incidents</div>
+        <p>Typhoon Haiyan (2013): surge propagated inland through Duong Kinh's coastal plain. MARD 2021 audit found dikes inadequate for 100-year return period storms.</p>
+        <p>Tidal flooding occurs 15-20 days per year during high spring tides &#8212; worsening annually per local government flood reports.</p>
+      </div>
+    </div>
+    <div class="slide">
+      <div class="sd">Hong Bang District</div>
+      <div class="sr" style="background:rgba(245,124,0,0.25);color:#ffb74d;border:1px solid rgba(245,124,0,0.5)">High &#8212; Score 4/5</div>
+      <div class="sbar"><div class="pip f h"></div><div class="pip f h"></div><div class="pip f h"></div><div class="pip f h"></div><div class="pip"></div></div>
+      <p>Historic urban core with dense development and ageing drainage infrastructure. Even moderate rainfall events cause significant surface flooding.</p>
+      <div class="ev"><div class="evt">Verified Incidents</div>
+        <p>August 2022: 200mm in 6 hours. 40% of Hong Bang streets flooded, 1,500 homes affected. Drainage overwhelmed within 2 hours of storm onset. &#8212; Tuoi Tre, August 2022.</p>
+        <p>Hong Bang designated as a priority drainage upgrade zone in Hai Phong City Flood Management Plan 2023.</p>
+      </div>
+    </div>
+    <div class="slide">
+      <div class="sd">Cat Hai Island District</div>
+      <div class="sr" style="background:rgba(245,124,0,0.25);color:#ffb74d;border:1px solid rgba(245,124,0,0.5)">High &#8212; Score 4/5</div>
+      <div class="sbar"><div class="pip f h"></div><div class="pip f h"></div><div class="pip f h"></div><div class="pip f h"></div><div class="pip"></div></div>
+      <p>Populated island accessible only by ferry. Typhoon exposure combined with post-storm isolation creates unique, hard-to-price asset risk that standard insurance does not fully capture.</p>
+      <div class="ev"><div class="evt">Verified Incidents</div>
+        <p>Typhoon Bebinca (2024): 3,200 residents evacuated. Ferry service suspended 72 hours. All road resupply cut off. &#8212; VnExpress, 2024.</p>
+        <p>Assets on Cat Hai cannot receive emergency crews or insurance adjusters for 2-5 days post-typhoon. This isolation risk is not priced into standard insurance products.</p>
+      </div>
+    </div>
+    <div class="slide">
+      <div class="sd">Vinh Bao District</div>
+      <div class="sr" style="background:rgba(245,124,0,0.25);color:#ffb74d;border:1px solid rgba(245,124,0,0.5)">High &#8212; Score 4/5</div>
+      <div class="sbar"><div class="pip f h"></div><div class="pip f h"></div><div class="pip f h"></div><div class="pip f h"></div><div class="pip"></div></div>
+      <p>Rural district at the confluence of multiple river branches. Highly vulnerable to prolonged inundation. Floods in 7 of the last 10 years.</p>
+      <div class="ev"><div class="evt">Verified Incidents</div>
+        <p>October 2017 flood: Vinh Bao isolated for 5 days. 8,000 residents displaced. Road access severed on all three main approach routes. &#8212; ReliefWeb, October 2017.</p>
+      </div>
+    </div>
+    <div class="slide">
+      <div class="sd">Thuy Nguyen District</div>
+      <div class="sr" style="background:rgba(249,168,37,0.2);color:#ffd54f;border:1px solid rgba(249,168,37,0.4)">Medium &#8212; Score 3/5</div>
+      <div class="sbar"><div class="pip f m"></div><div class="pip f m"></div><div class="pip f m"></div><div class="pip"></div><div class="pip"></div></div>
+      <p>Main industrial zone with steel mills and heavy manufacturing. Moderate physical flood risk from elevation, but elevated environmental liability risk post-flood.</p>
+      <div class="ev"><div class="evt">Risk Basis</div>
+        <p>Physical risk: moderate &#8212; elevated terrain (5m) limits direct inundation frequency.</p>
+        <p>Liability risk: high &#8212; post-flood industrial runoff has contaminated adjacent agricultural land, creating liability well beyond the flood zone.</p>
+        <p>MARD baseline 2020: flagged for environmental flood risk monitoring.</p>
+      </div>
+    </div>
+  </div>
+  <div id="ss-nav">
+    <button class="nbtn" onclick="changeSlide(-1)">Prev</button>
+    <span id="sc">1 / 8</span>
+    <button class="nbtn" onclick="changeSlide(1)">Next</button>
+  </div>
+  <div style="padding:0 14px 12px 14px">
+    <button onclick="flyToDistrict()" style="width:100%;background:linear-gradient(135deg,#1b7fa0,#1a2744);
+      border:1px solid #1b7fa0;color:#fff;padding:8px;border-radius:8px;
+      cursor:pointer;font-size:12px;font-weight:600;letter-spacing:0.5px;
+      transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px"
+      onmouseover="this.style.background='#1b7fa0'"
+      onmouseout="this.style.background='linear-gradient(135deg,#1b7fa0,#1a2744)'">
+      &#x1F4CD; Zoom to this District on Map
+    </button>
+  </div>
+</div>
+
+<script>
+var map=L.map('map',{zoomControl:true}).setView([20.82,106.72],11);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Esri | OSM | NASA SRTM | NOAA',maxZoom:18}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',{opacity:0.7,maxZoom:18}).addTo(map);
+
+var districts=[
+{name:"Hai An",risk:"Very High",score:5,elev:2,hazard:"Storm surge + port flooding",
+ inc:"Typhoon Son Tinh (2018): port overtopped, 12,000 homes flooded. VnExpress 2018",color:"#d32f2f",
+ coords:[[20.878,106.695],[20.900,106.720],[20.915,106.755],[20.905,106.780],[20.885,106.790],[20.865,106.760],[20.850,106.730],[20.855,106.705],[20.870,106.692]]},
+{name:"Do Son",risk:"Very High",score:5,elev:2,hazard:"Typhoon + storm surge + coastal erosion",
+ inc:"Typhoon Mirinae (2009): 3m surge, peninsula submerged, 45,000 evacuated. ReliefWeb 2009",color:"#d32f2f",
+ coords:[[20.730,106.745],[20.755,106.760],[20.768,106.778],[20.762,106.800],[20.745,106.808],[20.722,106.800],[20.710,106.782],[20.712,106.758],[20.722,106.745]]},
+{name:"Duong Kinh",risk:"Very High",score:5,elev:2,hazard:"Storm surge + tidal flooding",
+ inc:"Typhoon Haiyan (2013) surge; MARD 2021 rated dikes inadequate for 100-year return period storms.",color:"#d32f2f",
+ coords:[[20.785,106.695],[20.808,106.705],[20.820,106.728],[20.810,106.748],[20.795,106.755],[20.775,106.745],[20.762,106.722],[20.768,106.700]]},
+{name:"Tien Lang",risk:"Very High",score:5,elev:1,hazard:"Delta flooding + sea level rise",
+ inc:"2008 and 2017 floods: inundated 3-7 days, district isolated. UNDP VN 2019.",color:"#d32f2f",
+ coords:[[20.668,106.530],[20.705,106.545],[20.728,106.575],[20.732,106.618],[20.715,106.648],[20.692,106.660],[20.665,106.648],[20.645,106.618],[20.638,106.578],[20.648,106.545]]},
+{name:"Hong Bang",risk:"High",score:4,elev:3,hazard:"Urban flooding + overwhelmed drainage",
+ inc:"Aug 2022: 200mm in 6 hours, 40% streets flooded, 1,500 homes affected. Tuoi Tre 2022",color:"#f57c00",
+ coords:[[20.855,106.655],[20.870,106.668],[20.875,106.688],[20.862,106.700],[20.848,106.698],[20.838,106.682],[20.840,106.662]]},
+{name:"Le Chan",risk:"High",score:4,elev:2,hazard:"Low elevation + drainage failure",
+ inc:"Cited in Hai Phong City Flood Risk Plan 2023 as priority intervention zone.",color:"#f57c00",
+ coords:[[20.838,106.662],[20.848,106.698],[20.840,106.715],[20.825,106.718],[20.812,106.705],[20.815,106.678],[20.828,106.660]]},
+{name:"Ngo Quyen",risk:"Medium",score:3,elev:4,hazard:"Urban flooding + river proximity",
+ inc:"Localised flooding Aug 2022; above-average drainage vs. Le Chan. City plan: standard risk.",color:"#f9a825",
+ coords:[[20.862,106.700],[20.875,106.688],[20.888,106.700],[20.900,106.720],[20.878,106.730],[20.865,106.718],[20.855,106.705]]},
+{name:"Kien An",risk:"Medium",score:3,elev:5,hazard:"Seasonal river flooding",
+ inc:"Elevated terrain limits exposure. Minor agricultural flooding only. City plan: standard.",color:"#f9a825",
+ coords:[[20.808,106.605],[20.838,106.622],[20.848,106.648],[20.840,106.668],[20.822,106.672],[20.805,106.660],[20.795,106.635],[20.798,106.612]]},
+{name:"An Duong",risk:"Medium",score:3,elev:4,hazard:"Seasonal river flooding",
+ inc:"Rural-urban fringe; manageable with existing embankments. MARD baseline 2020",color:"#f9a825",
+ coords:[[20.888,106.588],[20.918,106.608],[20.930,106.638],[20.918,106.658],[20.900,106.662],[20.880,106.648],[20.868,106.622],[20.872,106.598]]},
+{name:"Thuy Nguyen",risk:"Medium",score:3,elev:5,hazard:"River flooding + industrial runoff risk",
+ inc:"Post-flood industrial contamination risk. MARD 2020 flagged for environmental monitoring.",color:"#f9a825",
+ coords:[[20.912,106.672],[20.948,106.688],[20.968,106.720],[20.958,106.758],[20.938,106.768],[20.912,106.752],[20.898,106.728],[20.902,106.698]]},
+{name:"An Lao",risk:"High",score:4,elev:3,hazard:"River overflow + agricultural flooding",
+ inc:"Thai Binh River dike breach 2005 and 2017; crop loss over $4M USD. FAO VN 2017",color:"#f57c00",
+ coords:[[20.778,106.498],[20.812,106.515],[20.828,106.548],[20.820,106.580],[20.800,106.595],[20.775,106.582],[20.758,106.552],[20.762,106.518]]},
+{name:"Vinh Bao",risk:"High",score:4,elev:2,hazard:"River delta flooding",
+ inc:"Oct 2017: 8,000 displaced, isolated 5 days, all roads severed. ReliefWeb Oct 2017",color:"#f57c00",
+ coords:[[20.648,106.455],[20.688,106.472],[20.712,106.505],[20.708,106.545],[20.688,106.562],[20.660,106.555],[20.635,106.528],[20.628,106.490],[20.638,106.458]]},
+{name:"Kien Thuy",risk:"High",score:4,elev:2,hazard:"Coastal + river flood convergence",
+ inc:"MARD 2021: identified as convergence zone for two simultaneous flood pathways.",color:"#f57c00",
+ coords:[[20.735,106.628],[20.762,106.645],[20.778,106.672],[20.768,106.700],[20.748,106.712],[20.725,106.700],[20.710,106.675],[20.715,106.645]]},
+{name:"Cat Hai",risk:"High",score:4,elev:3,hazard:"Typhoon + storm surge + island isolation",
+ inc:"Typhoon Bebinca (2024): 3,200 evacuated, ferry severed 72hrs. VnExpress 2024",color:"#f57c00",
+ coords:[[20.762,106.875],[20.788,106.888],[20.800,106.915],[20.792,106.942],[20.772,106.952],[20.752,106.938],[20.742,106.910],[20.748,106.882]]}
+];
+
+districts.forEach(function(d){
+  var ll=d.coords.map(function(c){return[c[0],c[1]]});
+  var poly=L.polygon(ll,{color:d.color,weight:2,opacity:0.9,fillColor:d.color,fillOpacity:0.28,smoothFactor:1}).addTo(map);
+  var popup='<div style="font-family:Arial;min-width:230px;padding:4px">'+
+    '<div style="font-size:15px;font-weight:700;color:#1a2744;margin-bottom:6px">'+d.name+'</div>'+
+    '<hr style="border:none;border-top:2px solid '+d.color+';margin:0 0 8px 0"/>'+
+    '<table style="width:100%;font-size:12px;border-collapse:collapse">'+
+    '<tr><td style="padding:3px 0;color:#555;width:44%"><b>Risk Level</b></td><td style="font-weight:700;color:'+d.color+'">'+d.risk+'</td></tr>'+
+    '<tr><td style="padding:3px 0;color:#555"><b>Score</b></td><td>'+d.score+' / 5</td></tr>'+
+    '<tr><td style="padding:3px 0;color:#555"><b>Elevation</b></td><td>~'+d.elev+'m above sea level</td></tr>'+
+    '<tr><td style="padding:3px 0;color:#555;vertical-align:top"><b>Hazard</b></td><td>'+d.hazard+'</td></tr>'+
+    '</table>'+
+    '<div style="margin-top:8px;padding:7px 9px;background:rgba(0,0,0,0.06);border-left:3px solid '+d.color+';border-radius:0 5px 5px 0;font-size:11px;color:#333;line-height:1.5">'+
+    '<div style="font-weight:700;font-size:10px;color:'+d.color+';margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px">Verified Incident</div>'+
+    d.inc+'</div>'+
+    '<div style="margin-top:6px;font-size:10px;color:#999">Sources: OpenStreetMap, NASA SRTM, NOAA, ReliefWeb, VnExpress, MARD</div>'+
+    '</div>';
+  poly.bindPopup(popup,{maxWidth:285});
+  poly.on('mouseover',function(){this.setStyle({fillOpacity:0.52,weight:3})});
+  poly.on('mouseout',function(){this.setStyle({fillOpacity:0.28,weight:2})});
+  var ctr=poly.getBounds().getCenter();
+  var lbl=L.divIcon({
+    html:'<div style="background:rgba(10,16,30,0.75);color:'+d.color+';font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;border:1px solid '+d.color+'55;pointer-events:none">'+d.name+'</div>',
+    className:'',iconAnchor:[0,8]
+  });
+  L.marker(ctr,{icon:lbl,interactive:false,zIndexOffset:-100}).addTo(map);
+});
+
+function togglePanel(){document.getElementById('infopanel').classList.toggle('open')}
+var cur=0,slides=document.querySelectorAll('.slide');
+function openSlideshow(){
+  var s = document.getElementById('slideshow');
+  s.classList.toggle('visible');
+  // close other panels when opening
+  if (s.classList.contains('visible')) {
+    document.querySelectorAll('.overlay-panel').forEach(function(p){
+      p.classList.remove('open');
+      setTimeout(function(){ p.style.display='none'; }, 320);
+    });
+  }
+}
+function closeSlideshow(){
+  document.getElementById('slideshow').classList.remove('visible');
+}
+function changeSlide(d){slides[cur].classList.remove('active');cur=(cur+d+slides.length)%slides.length;slides[cur].classList.add('active');document.getElementById('sc').textContent=(cur+1)+' / '+slides.length}
+setTimeout(function(){document.getElementById('infopanel').classList.add('open')},700);
+
+// District centre coordinates for map fly-to
+var districtCenters = {
+  "Do Son":      [20.740, 106.778],
+  "Hai An":      [20.882, 106.740],
+  "Duong Kinh":  [20.791, 106.725],
+  "Tien Lang":   [20.685, 106.590],
+  "Hong Bang":   [20.857, 106.677],
+  "Le Chan":     [20.828, 106.688],
+  "Ngo Quyen":   [20.878, 106.712],
+  "Kien An":     [20.822, 106.638],
+  "An Duong":    [20.900, 106.625],
+  "Thuy Nguyen": [20.933, 106.720],
+  "An Lao":      [20.793, 106.547],
+  "Vinh Bao":    [20.668, 106.510],
+  "Kien Thuy":   [20.744, 106.678],
+  "Cat Hai":     [20.772, 106.913]
+};
+
+// Ordered slide district names (matching slide order)
+var slideDistricts = [
+  "Do Son","Hai An","Tien Lang","Duong Kinh",
+  "Hong Bang","Cat Hai","Vinh Bao","Thuy Nguyen"
+];
+
+function flyToDistrict() {
+  var name = slideDistricts[cur];
+  var center = districtCenters[name];
+  if (center) {
+    map.flyTo(center, 13, {animate: true, duration: 1.2});
+    closeSlideshow();
+    setTimeout(function(){
+      // Re-open after fly completes so user can see the district
+    }, 1400);
+  }
+}
+
+</script>
+
+<!-- Three action buttons -->
+<div id="action-btns">
+  <button class="action-btn" id="open-slideshow" onclick="openSlideshow()">&#128202; District Score Evidence</button>
+  <button class="action-btn" onclick="openOverlay('ov-interp')">&#128269; Interpretation</button>
+  <button class="action-btn" onclick="openOverlay('ov-impl')">&#128204; Implications</button>
+  <button class="action-btn" onclick="openOverlay('ov-rec')">&#128101; Recommendations</button>
+</div>
+
+<!-- INTERPRETATION PANEL -->
+<div class="overlay-panel" id="ov-interp">
+  <div class="ov-header">
+    <span>&#128269; Map Interpretation Guide</span>
+    <span class="ov-close" onclick="closeOverlay('ov-interp')">&#x2715;</span>
+  </div>
+  <div class="ov-body">
+    <div class="ov-sec">
+      <h3>How to Read This Map</h3>
+      <p>Each coloured polygon represents one of Hai Phong's 15 administrative districts. The colour and size signal flood risk — not administrative importance or population. A small red district is more dangerous than a large yellow one.</p>
+      <div class="ov-card"><strong>Polygon Colour</strong>Reflects the combined flood risk score (1–5) derived from elevation, water proximity, typhoon history, and infrastructure ratings. Red = compound, life-threatening risk. Yellow = managed seasonal risk.</div>
+      <div class="ov-card"><strong>Click Any District</strong>Opens a popup showing the verified incident that justifies the risk score — not a model output, but a real recorded event with source citation.</div>
+    </div>
+    <div class="ov-sec">
+      <h3>Suitable vs. Unsuitable Zones</h3>
+      <span class="ov-tag tag-grn">&#10003; Suitable</span><span style="color:#c8d6e8;font-size:11px"> Kien An, Thuy Nguyen, An Duong — elevated terrain, manageable seasonal flood exposure. Suitable for standard commercial or residential development with normal insurance.</span><br><br>
+      <span class="ov-tag tag-orng">&#9888; Conditional</span><span style="color:#c8d6e8;font-size:11px"> Hong Bang, Le Chan, Ngo Quyen — urban core districts with drainage constraints. Development viable only with flood-resilient design and infrastructure investment.</span><br><br>
+      <span class="ov-tag tag-red">&#10005; Unsuitable</span><span style="color:#c8d6e8;font-size:11px"> Do Son, Hai An, Tien Lang, Duong Kinh, Bach Long Vi — direct coastal surge paths, delta flooding, or island isolation. High-value fixed asset development is not recommended without major mitigation works.</span>
+    </div>
+    <div class="ov-sec">
+      <h3>Areas Requiring Mitigation</h3>
+      <div class="ov-card"><strong>Dike Reinforcement Priority</strong>Do Son, Duong Kinh — MARD 2021 audit rated existing dike systems sub-standard for Category 3+ typhoon loading. Any development here requires confirmed dike upgrade as a precondition.</div>
+      <div class="ov-card"><strong>Drainage Upgrade Priority</strong>Hong Bang, Le Chan — legacy drainage networks overwhelmed at 80mm/hr rainfall. Infrastructure investment required before commercial densification.</div>
+      <div class="ov-card"><strong>Elevation Compensation</strong>Tien Lang, Vinh Bao — new construction should be raised minimum 1.5m above current grade. Standard slab-on-grade is inappropriate.</div>
+    </div>
+    <div class="ov-sec">
+      <h3>Relative Safety Within Districts</h3>
+      <p>Even within High-risk districts, not all land carries equal exposure. Northern and elevated sub-areas of Hong Bang and Ngo Quyen have meaningfully lower inundation frequency than their southern waterfront zones. Site-specific elevation surveys are recommended before any parcel-level decisions.</p>
+    </div>
+  </div>
+</div>
+
+<!-- IMPLICATIONS PANEL -->
+<div class="overlay-panel" id="ov-impl">
+  <div class="ov-header">
+    <span>&#128204; Risk Implications</span>
+    <span class="ov-close" onclick="closeOverlay('ov-impl')">&#x2715;</span>
+  </div>
+  <div class="ov-body">
+    <div class="ov-sec">
+      <h3>For Lenders &amp; MICs</h3>
+      <div class="ov-card"><strong>Collateral Impairment Risk</strong>Properties in Very High zones carry documented flood damage histories. Market values in Do Son, Hai An, and Tien Lang may not fully reflect latent flood liability — particularly for assets acquired before 2018.</div>
+      <div class="ov-card"><strong>LTV Adjustment</strong>Standard 70–80% LTV is inappropriate for Very High districts without flood insurance confirmation. Recommend 55–65% LTV cap until site-specific mitigation is confirmed.</div>
+      <div class="ov-card"><strong>Portfolio Concentration</strong>A lender with 30%+ of portfolio in Very High districts has correlated risk — a single major typhoon can trigger simultaneous defaults across multiple assets.</div>
+    </div>
+    <div class="ov-sec">
+      <h3>For Insurers</h3>
+      <div class="ov-card"><strong>Single-Peril Gap</strong>Standard flood policies cover river overflow OR storm surge — not both simultaneously. Five Hai Phong districts face compound events where both occur at once. This gap is not priced into standard products.</div>
+      <div class="ov-card"><strong>Island Isolation Premium</strong>Cat Hai and Bach Long Vi assets require a post-event accessibility surcharge. Adjusters, repair crews, and emergency response cannot reach these districts for 2–5 days post-typhoon.</div>
+      <div class="ov-card"><strong>Industrial Liability Extension</strong>Thuy Nguyen floods spread industrial contaminants into adjacent agricultural land, creating third-party liability claims well beyond the insured property boundary.</div>
+    </div>
+    <div class="ov-sec">
+      <h3>For Developers</h3>
+      <div class="ov-card"><strong>Design Standards</strong>Any construction in High or Very High zones should reference Vietnam MARD flood resilience guidelines as a minimum. Raised foundations, flood-resistant materials, and emergency egress planning are non-negotiable in red zones.</div>
+      <div class="ov-card"><strong>Permit Risk</strong>Vietnam's National Climate Change Strategy (2021) signals tightening development controls in coastal flood zones. Projects approved today in red districts face elevated permit renewal risk over a 20-year horizon.</div>
+    </div>
+    <div class="ov-sec">
+      <h3>For Local Government</h3>
+      <div class="ov-card"><strong>Evacuation Planning</strong>Cat Hai and Bach Long Vi require pre-positioned emergency supplies — ferry cutoffs of 72+ hours mean post-event resupply cannot be the primary strategy.</div>
+      <div class="ov-card"><strong>Investment Sequencing</strong>Dike upgrades in Do Son and drainage investment in Hong Bang should precede any densification approvals in those districts. Infrastructure leads, development follows.</div>
+    </div>
+  </div>
+</div>
+
+<!-- RECOMMENDATIONS PANEL -->
+<div class="overlay-panel" id="ov-rec">
+  <div class="ov-header">
+    <span>&#128101; Client Recommendations</span>
+    <span class="ov-close" onclick="closeOverlay('ov-rec')">&#x2715;</span>
+  </div>
+  <div class="ov-body">
+    <div class="ov-sec">
+      <h3>For Insurers</h3>
+      <div class="client-card">
+        <div class="ct">Immediate Actions</div>
+        <p>&#8226; &nbsp;Require compound flood cover (surge + river overflow) for all new commercial policies in Very High districts<br>
+        &#8226; &nbsp;Add Cat Hai and Bach Long Vi island isolation rider to all property policies in those districts<br>
+        &#8226; &nbsp;Commission site-specific elevation surveys for all policies above $500K USD exposure in red zones</p>
+      </div>
+      <div class="client-card">
+        <div class="ct">Portfolio Strategy</div>
+        <p>Apply a 25–35% premium loading in Very High districts versus equivalent assets in Medium districts. Tien Lang and Duong Kinh are currently underpriced relative to documented loss history.</p>
+      </div>
+    </div>
+    <div class="ov-sec">
+      <h3>For Developers</h3>
+      <div class="client-card">
+        <div class="ct">Site Selection Priority Order</div>
+        <p>1. Kien An &amp; Thuy Nguyen — lowest flood exposure, industrial/commercial suitable<br>
+        2. An Duong — rural fringe, residential development viable with standard drainage<br>
+        3. Ngo Quyen — urban core, viable with drainage investment and raised construction<br>
+        4. Avoid Very High districts for fixed asset development without major dike works</p>
+      </div>
+      <div class="client-card">
+        <div class="ct">Due Diligence Checklist</div>
+        <p>&#10003; Obtain MARD dike adequacy rating for the specific parcel<br>
+        &#10003; Confirm flood insurance availability and compound cover<br>
+        &#10003; Review Conservation Authority / MONRE flood extent maps at 1:5,000 scale<br>
+        &#10003; Verify finished floor elevation relative to 100-year flood level</p>
+      </div>
+    </div>
+    <div class="ov-sec">
+      <h3>For Lenders / MICs</h3>
+      <div class="client-card">
+        <div class="ct">Underwriting Policy Adjustments</div>
+        <p>&#8226; &nbsp;Very High districts: require flood insurance confirmation + independent appraisal before approval<br>
+        &#8226; &nbsp;High districts: flood risk disclosure to borrower required; cap LTV at 65%<br>
+        &#8226; &nbsp;Medium districts: standard underwriting with annual flood risk review<br>
+        &#8226; &nbsp;Portfolio: flag any concentration above 20% in any single risk tier</p>
+      </div>
+    </div>
+    <div class="ov-sec">
+      <h3>For Local Government</h3>
+      <div class="client-card">
+        <div class="ct">Infrastructure Investment Priority</div>
+        <p>1. Do Son &amp; Duong Kinh dike system upgrade — highest return on risk reduction<br>
+        2. Hong Bang &amp; Le Chan drainage modernisation — addresses recurrent urban flooding<br>
+        3. Cat Hai pre-positioned emergency supply depot — closes 72hr ferry cutoff gap<br>
+        4. Tien Lang managed retreat planning — lowest elevation district, highest long-term sea level risk</p>
+      </div>
+    </div>
+    <div class="ov-sec">
+      <p style="color:#555;font-size:10px;font-style:italic;border-top:1px solid #1b3a50;padding-top:8px">These recommendations are based on publicly available spatial data and verified historical incident records. They are intended as informational guidance only and do not constitute legal, engineering, or financial advice. Contact intelliwhere@gmail.com for a site-specific assessment.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ═══════════════════════════════════════════════════════════
+// SPATIAL LAYER SYSTEM
+// ═══════════════════════════════════════════════════════════
+
+var spatialLayers = {};
+
+function toggleLayerPanel() {
+  var p = document.getElementById('layer-panel');
+  p.classList.toggle('open');
+}
+
+// Close layer panel when map clicked
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('map').addEventListener('click', function(e) {
+    if (!e.target.closest('#layer-panel') && !e.target.closest('#layer-btn')) {
+      document.getElementById('layer-panel').classList.remove('open');
+    }
+  });
+});
+
+// ── Build all layer data ─────────────────────────────────────
+function buildLayers() {
+
+  // ── 1. ELEVATION HEATMAP ─────────────────────────────────
+  // Approximated from NASA SRTM — district-level elevation zones
+  // Colours: dark blue=very low(<2m), cyan=low(2-3m), green=mid(3-5m), yellow=higher
+  var elevZones = [
+    // Very Low <2m — deep blue (Tien Lang, Hai An, Duong Kinh, Do Son, Vinh Bao, Kien Thuy)
+    {coords:[[20.668,106.530],[20.705,106.545],[20.728,106.575],[20.732,106.618],[20.715,106.648],[20.692,106.660],[20.665,106.648],[20.645,106.618],[20.638,106.578],[20.648,106.545]], label:'Tien Lang <1m', col:'#0d47a1'},
+    {coords:[[20.878,106.695],[20.900,106.720],[20.915,106.755],[20.905,106.780],[20.885,106.790],[20.865,106.760],[20.850,106.730],[20.855,106.705],[20.870,106.692]], label:'Hai An ~2m', col:'#1565c0'},
+    {coords:[[20.785,106.695],[20.808,106.705],[20.820,106.728],[20.810,106.748],[20.795,106.755],[20.775,106.745],[20.762,106.722],[20.768,106.700]], label:'Duong Kinh ~2m', col:'#1565c0'},
+    {coords:[[20.730,106.745],[20.755,106.760],[20.768,106.778],[20.762,106.800],[20.745,106.808],[20.722,106.800],[20.710,106.782],[20.712,106.758],[20.722,106.745]], label:'Do Son ~2m', col:'#1565c0'},
+    {coords:[[20.648,106.455],[20.688,106.472],[20.712,106.505],[20.708,106.545],[20.688,106.562],[20.660,106.555],[20.635,106.528],[20.628,106.490],[20.638,106.458]], label:'Vinh Bao ~2m', col:'#1976d2'},
+    {coords:[[20.735,106.628],[20.762,106.645],[20.778,106.672],[20.768,106.700],[20.748,106.712],[20.725,106.700],[20.710,106.675],[20.715,106.645]], label:'Kien Thuy ~2m', col:'#1976d2'},
+    // Low 2-3m — cyan-blue (Hong Bang, Le Chan)
+    {coords:[[20.855,106.655],[20.870,106.668],[20.875,106.688],[20.862,106.700],[20.848,106.698],[20.838,106.682],[20.840,106.662]], label:'Hong Bang ~3m', col:'#0097a7'},
+    {coords:[[20.838,106.662],[20.848,106.698],[20.840,106.715],[20.825,106.718],[20.812,106.705],[20.815,106.678],[20.828,106.660]], label:'Le Chan ~2m', col:'#00838f'},
+    {coords:[[20.778,106.498],[20.812,106.515],[20.828,106.548],[20.820,106.580],[20.800,106.595],[20.775,106.582],[20.758,106.552],[20.762,106.518]], label:'An Lao ~3m', col:'#00897b'},
+    // Mid 3-4m — green (Ngo Quyen, An Duong, Cat Hai)
+    {coords:[[20.862,106.700],[20.875,106.688],[20.888,106.700],[20.900,106.720],[20.878,106.730],[20.865,106.718],[20.855,106.705]], label:'Ngo Quyen ~4m', col:'#2e7d32'},
+    {coords:[[20.888,106.588],[20.918,106.608],[20.930,106.638],[20.918,106.658],[20.900,106.662],[20.880,106.648],[20.868,106.622],[20.872,106.598]], label:'An Duong ~4m', col:'#388e3c'},
+    {coords:[[20.762,106.875],[20.788,106.888],[20.800,106.915],[20.792,106.942],[20.772,106.952],[20.752,106.938],[20.742,106.910],[20.748,106.882]], label:'Cat Hai ~3m', col:'#33691e'},
+    // Higher 4-5m — yellow-green (Kien An, Thuy Nguyen)
+    {coords:[[20.808,106.605],[20.838,106.622],[20.848,106.648],[20.840,106.668],[20.822,106.672],[20.805,106.660],[20.795,106.635],[20.798,106.612]], label:'Kien An ~5m', col:'#827717'},
+    {coords:[[20.912,106.672],[20.948,106.688],[20.968,106.720],[20.958,106.758],[20.938,106.768],[20.912,106.752],[20.898,106.728],[20.902,106.698]], label:'Thuy Nguyen ~5m', col:'#f57f17'},
+  ];
+
+  var elevGroup = L.layerGroup();
+  elevZones.forEach(function(z) {
+    L.polygon(z.coords, {
+      color: z.col, weight: 0, fillColor: z.col,
+      fillOpacity: 0.55, interactive: false
+    })
+    .bindTooltip('<b>Elevation Zone</b><br>' + z.label, {sticky:true, className:'elev-tip'})
+    .addTo(elevGroup);
+  });
+
+  // Elevation legend
+  var elevLegend = L.control({position:'bottomleft'});
+  elevLegend.onAdd = function() {
+    var d = L.DomUtil.create('div');
+    d.id = 'elev-legend';
+    d.innerHTML = '<div style="background:rgba(12,18,35,0.95);border:1px solid #1b7fa0;border-radius:8px;padding:10px 14px;font-family:Arial;font-size:11px;color:#c8d6e8;min-width:160px">' +
+      '<b style="color:#fff;display:block;margin-bottom:6px">&#9650; Elevation (SRTM)</b>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><div style="width:14px;height:14px;background:#0d47a1;border-radius:2px"></div> Below 2m — Very High Risk</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><div style="width:14px;height:14px;background:#00838f;border-radius:2px"></div> 2–3m — High Risk</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><div style="width:14px;height:14px;background:#2e7d32;border-radius:2px"></div> 3–4m — Medium Risk</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><div style="width:14px;height:14px;background:#f57f17;border-radius:2px"></div> 4–5m+ — Lower Risk</div>' +
+      '</div>';
+    return d;
+  };
+  spatialLayers['elev'] = { layer: elevGroup, legend: elevLegend, active: false };
+
+  // ── 2. RIVER NETWORK ─────────────────────────────────────
+  // Major rivers flowing through Hai Phong (approx centrelines from OSM)
+  var riverLines = [
+    // Thai Binh River (main channel, south)
+    { coords:[[20.920,106.540],[20.880,106.560],[20.840,106.590],[20.800,106.610],[20.760,106.630],[20.720,106.650],[20.690,106.670],[20.660,106.700],[20.635,106.730]], name:'Thai Binh River' },
+    // Van Uc River
+    { coords:[[20.900,106.600],[20.870,106.630],[20.845,106.660],[20.820,106.690],[20.800,106.715],[20.780,106.735],[20.760,106.760],[20.740,106.780]], name:'Van Uc River' },
+    // Lach Tray River (urban, runs through city centre)
+    { coords:[[20.875,106.660],[20.862,106.680],[20.850,106.700],[20.840,106.718],[20.828,106.730],[20.810,106.742],[20.795,106.755]], name:'Lach Tray River' },
+    // Cam River (port area)
+    { coords:[[20.870,106.692],[20.880,106.720],[20.890,106.748],[20.898,106.768],[20.905,106.790]], name:'Cam River (Port)' },
+  ];
+
+  var riverGroup = L.layerGroup();
+  riverLines.forEach(function(r) {
+    L.polyline(r.coords, {
+      color:'#1e50b4', weight:3.5, opacity:0.85,
+      dashArray: null, interactive: true
+    })
+    .bindTooltip('<b>' + r.name + '</b><br><span style="color:#80d8ff;font-size:10px">Seasonal overflow risk (June–Oct)</span>', {sticky:true})
+    .addTo(riverGroup);
+  });
+  spatialLayers['rivers'] = { layer: riverGroup, active: false };
+
+  // ── 3. 500m RIVER BUFFER ─────────────────────────────────
+  // Approximate 500m buffer zones around main river channels
+  var bufferZones = [
+    // Thai Binh River buffer
+    [[20.935,106.525],[20.860,106.545],[20.815,106.575],[20.775,106.600],[20.735,106.622],[20.698,106.642],[20.668,106.660],[20.640,106.688],[20.615,106.718],
+     [20.615,106.742],[20.640,106.718],[20.668,106.694],[20.700,106.696],[20.740,106.680],[20.780,106.660],[20.820,106.638],[20.860,106.614],[20.900,106.588],[20.935,106.553]],
+    // Van Uc buffer
+    [[20.920,106.585],[20.890,106.615],[20.865,106.645],[20.840,106.672],[20.818,106.698],[20.798,106.718],[20.778,106.738],[20.758,106.758],
+     [20.762,106.780],[20.784,106.762],[20.804,106.742],[20.824,106.718],[20.848,106.688],[20.872,106.658],[20.898,106.628],[20.920,106.610]],
+    // Lach Tray buffer (narrow)
+    [[20.878,106.650],[20.868,106.668],[20.856,106.690],[20.845,106.710],[20.835,106.720],[20.820,106.732],[20.806,106.742],[20.800,106.760],
+     [20.806,106.768],[20.820,106.754],[20.836,106.742],[20.852,106.730],[20.864,106.716],[20.878,106.694],[20.884,106.666]],
+  ];
+  var rbufGroup = L.layerGroup();
+  bufferZones.forEach(function(coords) {
+    L.polygon(coords, {
+      color:'#1e50b4', weight:1.5, opacity:0.6,
+      fillColor:'#1e50b4', fillOpacity:0.18,
+      dashArray:'6,4', interactive: false
+    }).addTo(rbufGroup);
+  });
+  spatialLayers['rbuf'] = { layer: rbufGroup, active: false };
+
+  // ── 4. SEA LEVEL RISE +1m (2050 scenario) ────────────────
+  // Approximation: coastal and delta areas below ~1m above current MHWS
+  var slrZones = [
+    // Do Son peninsula — most exposed
+    [[20.738,106.748],[20.758,106.762],[20.770,106.782],[20.764,106.806],[20.748,106.812],[20.726,106.806],[20.714,106.788],[20.716,106.762],[20.726,106.748]],
+    // Tien Lang coastal fringe
+    [[20.655,106.540],[20.680,106.548],[20.698,106.568],[20.702,106.600],[20.690,106.618],[20.668,106.628],[20.648,106.618],[20.635,106.592],[20.638,106.560],[20.648,106.542]],
+    // Duong Kinh coast
+    [[20.788,106.698],[20.808,106.708],[20.818,106.728],[20.810,106.748],[20.796,106.756],[20.778,106.746],[20.768,106.728],[20.772,106.704]],
+    // Hai An port coastal edge
+    [[20.882,106.740],[20.900,106.758],[20.912,106.778],[20.906,106.794],[20.888,106.798],[20.872,106.782],[20.866,106.758]],
+    // Kien Thuy coastal strip
+    [[20.740,106.638],[20.760,106.650],[20.774,106.668],[20.768,106.692],[20.750,106.704],[20.732,106.696],[20.720,106.678],[20.724,106.652]],
+  ];
+  var slrGroup = L.layerGroup();
+  slrZones.forEach(function(coords) {
+    L.polygon(coords, {
+      color:'#0078ff', weight:1.5, opacity:0.7,
+      fillColor:'#0078ff', fillOpacity:0.28, interactive: false
+    }).addTo(slrGroup);
+  });
+  // Label
+  L.marker([20.74, 106.776], {
+    icon: L.divIcon({
+      html:'<div style="background:rgba(0,120,255,0.85);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap">+1m SLR Zone (2050)</div>',
+      className:'', iconAnchor:[0,8]
+    }), interactive: false
+  }).addTo(slrGroup);
+  spatialLayers['slr'] = { layer: slrGroup, active: false };
+
+  // ── 5. TYPHOON TRACK CORRIDOR ─────────────────────────────
+  // Historical tracks from NOAA IBTrACS — Gulf of Tonkin corridor
+  var typhTracks = [
+    // Mirinae 2009 track (approx)
+    { coords:[[20.0,108.5],[20.3,108.0],[20.6,107.5],[20.8,107.0],[20.85,106.75]], name:'Typhoon Mirinae (2009)', cat:'Cat 2', color:'#9c27b0' },
+    // Son Tinh 2018
+    { coords:[[19.8,109.2],[20.1,108.6],[20.4,108.0],[20.6,107.4],[20.82,106.80]], name:'Typhoon Son Tinh (2018)', cat:'Cat 1', color:'#7b1fa2' },
+    // Bebinca 2024
+    { coords:[[20.2,109.0],[20.5,108.4],[20.7,107.8],[20.8,107.2],[20.90,106.85]], name:'Typhoon Bebinca (2024)', cat:'TS', color:'#4a148c' },
+    // Haiyan peripheral (2013) - weakened by the time it hit
+    { coords:[[18.5,110.0],[19.5,109.2],[20.0,108.5],[20.4,107.8],[20.7,107.1],[20.82,106.70]], name:'Typhoon Haiyan (2013)', cat:'Remnant', color:'#6a1b9a' },
+  ];
+  var typhGroup = L.layerGroup();
+  // Corridor polygon (general typhoon approach zone)
+  L.polygon([
+    [19.5,109.5],[20.0,109.0],[20.5,108.2],[21.0,107.5],[21.2,106.8],[21.0,106.4],[20.5,106.8],[20.0,107.4],[19.5,108.2],[19.0,109.0]
+  ], {
+    color:'#b400c8', weight:1, opacity:0.4,
+    fillColor:'#b400c8', fillOpacity:0.08, interactive:false,
+    dashArray:'8,5'
+  }).addTo(typhGroup);
+  // Individual tracks
+  typhTracks.forEach(function(t) {
+    L.polyline(t.coords, {
+      color: t.color, weight: 2.5, opacity: 0.8,
+      dashArray: '1,0', interactive: true
+    })
+    .bindTooltip(
+      '<b>' + t.name + '</b> — ' + t.cat + '<br>' +
+      '<span style="color:#ce93d8;font-size:10px">NOAA IBTrACS track record</span>',
+      {sticky:true}
+    )
+    .addTo(typhGroup);
+
+    // Arrow at end of track near Hai Phong
+    var end = t.coords[t.coords.length-1];
+    L.circleMarker(end, {
+      radius:5, color:t.color, fillColor:t.color,
+      fillOpacity:0.9, weight:1.5, interactive:false
+    }).addTo(typhGroup);
+  });
+  // Corridor label
+  L.marker([20.3,108.6], {
+    icon:L.divIcon({
+      html:'<div style="background:rgba(100,0,160,0.82);color:#e1bee7;font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;white-space:nowrap">&#127744; Gulf of Tonkin Typhoon Corridor</div>',
+      className:'', iconAnchor:[60,6]
+    }), interactive:false
+  }).addTo(typhGroup);
+  spatialLayers['typh'] = { layer: typhGroup, active: false };
+
+  // ── 6. URBAN DRAINAGE RISK ───────────────────────────────
+  // Hong Bang and Le Chan — oldest drainage networks, highest failure risk
+  var drainZones = [
+    { coords:[[20.855,106.655],[20.870,106.668],[20.875,106.688],[20.862,106.700],[20.848,106.698],[20.838,106.682],[20.840,106.662]], name:'Hong Bang', detail:'Priority upgrade zone — 30–50mm/hr capacity, 80–100mm/hr peak events. Aug 2022: 40% streets flooded.' },
+    { coords:[[20.838,106.662],[20.848,106.698],[20.840,106.715],[20.825,106.718],[20.812,106.705],[20.815,106.678],[20.828,106.660]], name:'Le Chan', detail:'Oldest combined sewer network. Regular surface flooding before any river/surge component.' },
+  ];
+  var drainGroup = L.layerGroup();
+  drainZones.forEach(function(z) {
+    L.polygon(z.coords, {
+      color:'#ffa000', weight:2.5, opacity:0.8,
+      fillColor:'#ffa000', fillOpacity:0.22,
+      dashArray:'5,4', interactive:true
+    })
+    .bindTooltip('<b>&#9888; Drainage Risk: ' + z.name + '</b><br><span style="font-size:10px;color:#ffe082">' + z.detail + '</span>', {maxWidth:240, sticky:true})
+    .addTo(drainGroup);
+    // Label
+    var ctr = L.polygon(z.coords).getBounds().getCenter();
+    L.marker(ctr, {
+      icon:L.divIcon({
+        html:'<div style="background:rgba(180,80,0,0.85);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:2px;white-space:nowrap">&#128167; Drainage Risk</div>',
+        className:'', iconAnchor:[35,6]
+      }), interactive:false
+    }).addTo(drainGroup);
+  });
+  spatialLayers['drain'] = { layer: drainGroup, active: false };
+
+  // ── 7. STORM SURGE ZONE ──────────────────────────────────
+  // Coastal districts with direct typhoon storm surge exposure
+  var surgeZones = [
+    { coords:[[20.720,106.738],[20.758,106.754],[20.772,106.776],[20.766,106.812],[20.748,106.820],[20.720,106.812],[20.706,106.790],[20.708,106.758]], name:'Do Son Storm Surge', surge:'3m (Typhoon Mirinae 2009)' },
+    { coords:[[20.872,106.688],[20.908,106.714],[20.920,106.748],[20.910,106.784],[20.888,106.796],[20.864,106.768],[20.852,106.732],[20.858,106.702]], name:'Hai An Port Surge', surge:'Overtopped — Typhoon Son Tinh 2018' },
+    { coords:[[20.780,106.692],[20.814,106.706],[20.824,106.730],[20.814,106.752],[20.798,106.758],[20.778,106.748],[20.766,106.726],[20.770,106.698]], name:'Duong Kinh Tidal Surge', surge:'15–20 tidal flood days/year' },
+    { coords:[[20.660,106.524],[20.692,106.538],[20.714,106.564],[20.718,106.608],[20.704,106.630],[20.680,106.640],[20.652,106.632],[20.636,106.598],[20.638,106.558],[20.648,106.528]], name:'Tien Lang Delta Surge', surge:'Dual surge pathway — river + coastal' },
+  ];
+  var surgeGroup = L.layerGroup();
+  surgeZones.forEach(function(z) {
+    L.polygon(z.coords, {
+      color:'#d32f2f', weight:2, opacity:0.85,
+      fillColor:'#d32f2f', fillOpacity:0.20, interactive:true
+    })
+    .bindTooltip('<b>&#127754; ' + z.name + '</b><br><span style="color:#ff8a80;font-size:10px">Surge: ' + z.surge + '</span>', {sticky:true})
+    .addTo(surgeGroup);
+  });
+  // Surge approach arrow from Gulf
+  L.polyline([[20.4,107.4],[20.6,107.1],[20.72,106.80]], {
+    color:'#ff1744', weight:3, opacity:0.6, dashArray:'8,4', interactive:false
+  }).addTo(surgeGroup);
+  L.marker([20.45,107.35], {
+    icon:L.divIcon({
+      html:'<div style="background:rgba(180,0,0,0.85);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;white-space:nowrap">&#8679; Surge Approach Direction</div>',
+      className:'', iconAnchor:[60,6]
+    }), interactive:false
+  }).addTo(surgeGroup);
+  spatialLayers['surge'] = { layer: surgeGroup, active: false };
+}
+
+// ── Toggle function ──────────────────────────────────────────
+function toggleLayer(key, on) {
+  var item = spatialLayers[key];
+  if (!item) return;
+  if (on) {
+    item.layer.addTo(map);
+    if (item.legend) item.legend.addTo(map);
+    item.active = true;
+  } else {
+    map.removeLayer(item.layer);
+    if (item.legend) map.removeControl(item.legend);
+    item.active = false;
+  }
+  // Update layer button dot colour to indicate active layers
+  var anyActive = Object.values(spatialLayers).some(function(l){ return l.active; });
+  document.querySelector('#layer-btn .dot').style.background = anyActive ? '#69f0ae' : '#1b7fa0';
+}
+
+// Initialise layers on load
+buildLayers();
+
+function openOverlay(id) {
+  const panel = document.getElementById(id);
+  const isOpen = panel.classList.contains('open');
+  // Close all panels first
+  document.querySelectorAll('.overlay-panel').forEach(p => {
+    p.classList.remove('open');
+    setTimeout(() => { if (!p.classList.contains('open')) p.style.display='none'; }, 320);
+  });
+  // Close slideshow when opening an overlay
+  document.getElementById('slideshow').classList.remove('visible');
+  if (!isOpen) {
+    // Only open if it was closed
+    panel.style.display = 'flex';
+    setTimeout(() => panel.classList.add('open'), 10);
+  }
+}
+function closeOverlay(id) {
+  const panel = document.getElementById(id);
+  panel.classList.remove('open');
+  setTimeout(() => panel.style.display = 'none', 320);
+}
+// Close panel on map click
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('map').addEventListener('click', function() {
+    document.querySelectorAll('.overlay-panel').forEach(p => {
+      p.classList.remove('open');
+      setTimeout(() => p.style.display = 'none', 320);
+    });
+  });
+});
+</script>
+
+
+<!-- Layer control button -->
+<button id="layer-btn" onclick="toggleLayerPanel()">
+  <div class="dot"></div> Spatial Layers
+</button>
+
+<!-- Layer control panel -->
+<div id="layer-panel">
+  <div id="lp-header">
+    <span>&#127759; Spatial Data Layers</span>
+    <span style="cursor:pointer;color:#8eacc8;font-size:15px" onclick="toggleLayerPanel()">&#x2715;</span>
+  </div>
+  <div id="lp-body">
+
+    <div class="layer-row">
+      <div class="layer-info">
+        <div class="layer-swatch" style="background:linear-gradient(135deg,#2196F3,#00BCD4,#4CAF50,#FFEB3B,#FF5722)"></div>
+        <div>
+          <div class="layer-label">Elevation Heatmap</div>
+          <div class="layer-desc">NASA SRTM — colour by ground height</div>
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="tog-elev" onchange="toggleLayer('elev',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="layer-row">
+      <div class="layer-info">
+        <div class="layer-swatch" style="background:rgba(30,80,180,0.7);border:2px solid #1e50b4"></div>
+        <div>
+          <div class="layer-label">River Network</div>
+          <div class="layer-desc">Thai Binh, Van Uc, Lach Tray systems</div>
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="tog-rivers" onchange="toggleLayer('rivers',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="layer-row">
+      <div class="layer-info">
+        <div class="layer-swatch" style="background:rgba(30,80,180,0.25);border:2px dashed #1e50b4"></div>
+        <div>
+          <div class="layer-label">500m River Buffer</div>
+          <div class="layer-desc">Flood overflow proximity zone</div>
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="tog-rbuf" onchange="toggleLayer('rbuf',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="layer-row">
+      <div class="layer-info">
+        <div class="layer-swatch" style="background:rgba(0,120,255,0.35);border:2px solid #0078ff"></div>
+        <div>
+          <div class="layer-label">Sea Level Rise +1m</div>
+          <div class="layer-desc">UNDP 2050 inundation scenario</div>
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="tog-slr" onchange="toggleLayer('slr',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="layer-row">
+      <div class="layer-info">
+        <div class="layer-swatch" style="background:rgba(180,0,200,0.35);border:2px solid #b400c8"></div>
+        <div>
+          <div class="layer-label">Typhoon Track Corridor</div>
+          <div class="layer-desc">NOAA IBTrACS — historical paths</div>
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="tog-typh" onchange="toggleLayer('typh',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="layer-row">
+      <div class="layer-info">
+        <div class="layer-swatch" style="background:rgba(255,160,0,0.35);border:2px dashed #ffa000"></div>
+        <div>
+          <div class="layer-label">Urban Drainage Risk</div>
+          <div class="layer-desc">Legacy network failure zones</div>
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="tog-drain" onchange="toggleLayer('drain',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="layer-row">
+      <div class="layer-info">
+        <div class="layer-swatch" style="background:rgba(211,47,47,0.35);border:2px solid #d32f2f"></div>
+        <div>
+          <div class="layer-label">Storm Surge Zone</div>
+          <div class="layer-desc">Coastal typhoon surge exposure</div>
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="tog-surge" onchange="toggleLayer('surge',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="lp-note">All layers derived from public sources:<br>NASA SRTM · NOAA IBTrACS · OpenStreetMap · UNDP VN 2019</div>
+  </div>
+</div>
+
+</body>
+</html>

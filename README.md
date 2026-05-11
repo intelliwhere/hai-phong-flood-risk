@@ -18,6 +18,31 @@ This project is part of the **IntelliWhere** GIS risk intelligence portfolio —
 
 ---
 
+## How to Run
+Link in About section directs to the interactive risk analysis map.
+
+```bash
+git clone https://github.com/intelliwhere/hai-phong-flood-risk
+cd hai-phong-flood-risk
+pip install -r requirements.txt
+jupyter notebook hai_phong_flood_risk.ipynb
+```
+
+The HTML map and PDF are pre-rendered — open them directly with no code required.
+
+**requirements.txt:**
+```
+geopandas
+folium
+pandas
+numpy
+shapely
+reportlab
+jupyter
+```
+
+---
+
 ## Deliverables
 
 | File | Description |
@@ -82,30 +107,6 @@ All scores anchored to verified historical incidents — no district receives Hi
 | Climate projections | UNDP Vietnam 2019 |
 | Agricultural loss records | FAO Vietnam 2017 |
 | News archive | VnExpress, Tuoi Tre (2005–2024) |
-
----
-
-## How to Run
-
-```bash
-git clone https://github.com/intelliwhere/hai-phong-flood-risk
-cd hai-phong-flood-risk
-pip install -r requirements.txt
-jupyter notebook hai_phong_flood_risk.ipynb
-```
-
-The HTML map and PDF are pre-rendered — open them directly with no code required.
-
-**requirements.txt:**
-```
-geopandas
-folium
-pandas
-numpy
-shapely
-reportlab
-jupyter
-```
 
 ---
 
